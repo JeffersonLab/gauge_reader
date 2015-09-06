@@ -66,7 +66,7 @@ int main(int argc, char** argv)
       case 'h':
       default:
         fprintf(stderr,
-            "\tUsage: %s [-d [-d] ...] [-l logfile_name] [-r x:y:w:h] image.jpg\n",
+            "\tUsage: %s [-d[d]] [-l logfile_name] [-r x:y:w:h] [-v /dev/videoX] image1.jpg [image2.jpg ...]\n",
             argv[0]);
         exit(EXIT_FAILURE);
       }
@@ -104,8 +104,7 @@ int main(int argc, char** argv)
         int count = config_setting_length(setting);
         int tmp[4];
         if(count != 4) {
-          fprintf(stderr,
-              "\tInvalid ROI specified in '%s'. Format should be [x,y,width,height]\n", config_file);
+          fprintf(stderr, "\tInvalid ROI specified in '%s'.\n", config_file);
           exit(EXIT_FAILURE);
         }
         for(int i=0; i<count; i++)
@@ -224,7 +223,22 @@ int main(int argc, char** argv)
     cvtColor( dst, color_dst, COLOR_GRAY2BGR );
     vector<Vec4i> lines;
 
-    HoughLinesP( dst, lines, 1, CV_PI/180, 25, aveRadius, 7);
+
+    /* HoughLinesP(dst, lines, 1, CV_PI/180, 50, 50, 10 );
+     *  dst: Output of the edge detector. It should be a grayscale image
+     *        (although in fact it is a binary one)
+     *  lines: A vector that will store the parameters (x_{start}, y_{start},
+     *        x_{end}, y_{end}) of the detected lines
+     *  rho : The resolution of the parameter r in pixels. We use 1 pixel.
+     *  theta: The resolution of the parameter \theta in radians. We use 1
+     *        degree (CV_PI/180)
+     *  threshold: The minimum number of intersections to "detect" a line
+     *  minLinLength: The minimum number of points that can form a line. Lines
+     *        with less than this number of points are disregarded.
+     *  maxLineGap: The maximum gap between two points to be considered in the
+     *        same line.
+     */
+    HoughLinesP( dst, lines, 1, CV_PI/180, HoughLineParam[0], aveRadius, HoughLineParam[1]);
     if(debug) fprintf(logf,"Found %d lines.\n", lines.size());
     for( size_t i = 0; i < lines.size(); i++ ) {
       int col = (int) 255./lines.size()*(i+1);
