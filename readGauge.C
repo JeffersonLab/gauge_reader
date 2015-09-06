@@ -44,7 +44,18 @@ double median(vector<double> arr) {
   return(median);
 }
 
-
+void usage(char *argv0) {
+  fprintf(stderr, "Usage: %s <Options> image1.jpg [...]\n", argv0);
+  fprintf(stderr, "  Options:\n");
+  fprintf(stderr, "\t-h               This help text\n");
+  fprintf(stderr, "\t-d               Enable debug output (repeat for increased verbosity)\n");
+  fprintf(stderr, "\t-l logfile       Send debug data to file\n");
+  fprintf(stderr, "\t-r x:y:w:h       Set ROI in image\n");
+  fprintf(stderr, "\t-v /dev/videoX   Read from v4l video device\n");
+  fprintf(stderr, "\t-f N             Output psi values averaged over N frames/image_files\n");
+  fprintf(stderr, "\t-c config_file   Use configuration file\n");
+  fprintf(stderr, "\n");
+}
 
 /** @function main */
 int main(int argc, char** argv)
@@ -109,9 +120,7 @@ int main(int argc, char** argv)
 
       case 'h':
       default:
-        fprintf(stderr,
-          "Usage: %s [-d[d]] [-l logfile_name] [-r x:y:w:h] [-v /dev/videoX] [-f maxFrames] image1.jpg [image2.jpg ...]\n\n",
-          argv[0]);
+        usage(argv[0]);
         exit(EXIT_FAILURE);
       }
   }
