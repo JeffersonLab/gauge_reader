@@ -12,6 +12,40 @@
 
 using namespace cv;
 
+vector<double> ang2psi(vector<double> ang, double *params) {
+  double minAng  = params[0];
+  double maxAng  = params[1];
+  double angZero = params[2];
+  double conv    = params[3];
+
+  vector<double> pressure;
+  for(int i=0; i<ang.size(); i++) {
+    double psi=-1;
+    if(ang[i] > minAng && ang[i] < maxAng) {
+      psi = (angZero - ang[i])*conv;
+      psi = psi <  0 ? 0 : psi;
+      pressure.push_back(psi);
+    }
+  }
+  return(pressure);
+}
+
+double median(vector<double> arr) {
+  if(arr.size() == 0) return 0;
+  if(arr.size() == 1) return arr[0];
+
+  double median = -1;
+  std::sort(arr.begin(), arr.end());
+  if(arr.size()%2 != 0) {
+    median = arr[(arr.size()-1)/2];
+  } else {
+    median = 0.5*(arr[arr.size()/2] + arr[arr.size()/2 - 1]);
+  }
+  return(median);
+}
+
+
+
 /** @function main */
 int main(int argc, char** argv)
 {
@@ -19,17 +53,21 @@ int main(int argc, char** argv)
   FILE *logf = NULL;
   Rect myROI(420,580,200, 75);    // (X,Y,width,height)
 
+  double par_ang2psi_lo[4] = {-999, 999, 0., -1.}; // conv function will return angle back
+  double par_ang2psi_hi[4] = {-999, 999, 0., -1.}; // conv function will return angle back
 
   /* Handle commandline options */
-  int debug = 0;
+  int maxFrames  = -1;
+  int frameCount = 0;
   int useVideo = 0;
+  int debug = 0;
   char config_file[MAXLEN]; config_file[0] = '\0';
   char video_dev[MAXLEN];   video_dev[0]  = '\0';
   char ROI[MAXLEN];
   char opt;
   int  HoughCircleParam[5] = {30, 50, 10, 20, 40};
   int  HoughLineParam[2]   = {25, 7};
-  while ((opt = getopt(argc, argv, "vdhl:r:c:v:")) != -1) {
+  while ((opt = getopt(argc, argv, "vdhl:r:c:v:f:")) != -1) {
     switch (opt) {
       case 'd':
         debug++;
@@ -39,6 +77,10 @@ int main(int argc, char** argv)
         useVideo = 1;
         strncpy(video_dev, optarg, MAXLEN-1);
         video_dev[MAXLEN-1]='\0';
+        break;
+
+      case 'f':
+        maxFrames=atoi(optarg);
         break;
 
       case 'c':
@@ -68,8 +110,8 @@ int main(int argc, char** argv)
       case 'h':
       default:
         fprintf(stderr,
-            "\tUsage: %s [-d[d]] [-l logfile_name] [-r x:y:w:h] [-v /dev/videoX] image1.jpg [image2.jpg ...]\n",
-            argv[0]);
+          "Usage: %s [-d[d]] [-l logfile_name] [-r x:y:w:h] [-v /dev/videoX] [-f maxFrames] image1.jpg [image2.jpg ...]\n\n",
+          argv[0]);
         exit(EXIT_FAILURE);
       }
   }
@@ -92,6 +134,8 @@ int main(int argc, char** argv)
     }
 
     if(!debug) config_lookup_int(&cfg, "debug", &debug);
+
+    if(maxFrames<0) config_lookup_int(&cfg, "max_frames", &maxFrames);
 
     if( (video_dev[0] == '\0') &&
             config_lookup_string(&cfg, "video_device", &tmpstr)) {
@@ -139,9 +183,23 @@ int main(int argc, char** argv)
         HoughLineParam[i] = config_setting_get_int_elem(setting, i);
     }
 
+    if(setting = config_lookup(&cfg, "ang2psi_hi")) {
+      config_lookup_float(&cfg, "ang2psi_hi.angMin",  par_ang2psi_hi+0 );
+      config_lookup_float(&cfg, "ang2psi_hi.angMax",  par_ang2psi_hi+1 );
+      config_lookup_float(&cfg, "ang2psi_hi.angZero", par_ang2psi_hi+2 );
+      config_lookup_float(&cfg, "ang2psi_hi.conv",    par_ang2psi_hi+3 );
+    }
+
+    if(setting = config_lookup(&cfg, "ang2psi_lo")) {
+      config_lookup_float(&cfg, "ang2psi_lo.angMin",  par_ang2psi_lo+0 );
+      config_lookup_float(&cfg, "ang2psi_lo.angMax",  par_ang2psi_lo+1 );
+      config_lookup_float(&cfg, "ang2psi_lo.angZero", par_ang2psi_lo+2 );
+      config_lookup_float(&cfg, "ang2psi_lo.conv",    par_ang2psi_lo+3 );
+    }
+
   } // Does config file exist?
   if(logf == NULL) logf = stderr;
-
+  if(maxFrames < 1) maxFrames = 1;
 
   if( !useVideo && optind >= argc) {
     fprintf(stderr, "\tMissing image filename argument after options list.\n");
@@ -158,6 +216,8 @@ int main(int argc, char** argv)
   }
 
   /* Loop over input files, or open /dev/video frames */
+  vector<double> angLeft;
+  vector<double> angRight;
   while(useVideo || (optind < argc)) {
 
     if(!useVideo) {
@@ -184,8 +244,6 @@ int main(int argc, char** argv)
 
     vector<Vec3f> circles;
     vector<Vec3f> goodCircles;
-    vector<double> angLeft;
-    vector<double> angRight;
 
     /// Apply the Hough Transform to find the circles
     //void cv::HoughCircles   (   InputArray    image,
@@ -355,6 +413,21 @@ int main(int argc, char** argv)
     }
     printf("\n\n");
 
+    /* Average results over maxFrames */
+    if(maxFrames > 0) {
+      frameCount++;
+
+      if(frameCount >= maxFrames) {
+        printf("  Pressure low / high: %8.2f  %8.2f\n\n", 
+            median(ang2psi(angLeft,  par_ang2psi_lo)),
+            median(ang2psi(angRight, par_ang2psi_hi))
+            );
+        frameCount=0;
+        angLeft.clear();
+        angRight.clear();
+      }
+    }
+
     if(useVideo) {
       sleep(1);
     } else {
@@ -363,5 +436,6 @@ int main(int argc, char** argv)
     }
 
   }
+
   exit(0);
 }
