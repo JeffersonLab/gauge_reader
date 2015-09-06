@@ -52,9 +52,9 @@ int main(int argc, char** argv)
         break;
 
       case 'r':
-        int i4[4];
-        if( sscanf(optarg, "%d:%d:%d:%d", i4, i4+1, i4+2, i4+3) == 4 ) {
-          myROI = Rect(i4[0], i4[1], i4[2], i4[3]);
+        int tmp[4];
+        if( sscanf(optarg, "%d:%d:%d:%d", tmp, tmp+1, tmp+2, tmp+3) == 4 ) {
+          myROI = Rect(tmp[0], tmp[1], tmp[2], tmp[3]);
         } else {
           fprintf(stderr,
             "\tFatal: Invalid ROI (%s) specified.  Format should be x:y:width:height\n",
@@ -102,19 +102,15 @@ int main(int argc, char** argv)
 
       if(setting = config_lookup(&cfg, "ROI")) {
         int count = config_setting_length(setting);
-        int i4[4];
+        int tmp[4];
         if(count != 4) {
           fprintf(stderr,
               "\tInvalid ROI specified in '%s'. Format should be [x,y,width,height]\n", config_file);
           exit(EXIT_FAILURE);
         }
-        for(int i=0; i<4; i++)
-          i4[i] = config_setting_get_int_elem(setting, i);
-        myROI = Rect(i4[0], i4[1], i4[2], i4[3]);
-      } else {
-        fprintf(stderr,
-          "\tInvalid ROI specified in '%s'. Format should be [x,y,width,height]\n", config_file);
-        exit(EXIT_FAILURE);
+        for(int i=0; i<count; i++)
+          tmp[i] = config_setting_get_int_elem(setting, i);
+        myROI = Rect(tmp[0], tmp[1], tmp[2], tmp[3]);
       }
     }
   }
