@@ -1,0 +1,11 @@
+# editor debris
+*~
+*.swp
+*.swo
+
+# test images
+*.jpg
+*.png
+
+# compiled binary
+readGauge
