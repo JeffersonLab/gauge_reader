@@ -315,7 +315,7 @@ int main(int argc, char** argv)
       imshow( "Detected Lines", color_dst );
     }
 
-    printf("Filename: %s\n", argv[1]);
+    printf("Filename: %s\n", argv[optind]);
     printf("  Left_angle(s): ");
     for(int i=0; i<angLeft.size(); i++) {
       printf("  %8.2f", angLeft[i]);
