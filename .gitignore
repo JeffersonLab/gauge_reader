@@ -9,3 +9,5 @@
 
 # compiled binary
 readGauge
+readGauge.cfg
+readGauge.log
