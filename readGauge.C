@@ -27,6 +27,8 @@ int main(int argc, char** argv)
   char video_dev[MAXLEN];   video_dev[0]  = '\0';
   char ROI[MAXLEN];
   char opt;
+  int  HoughCircleParam[5] = {30, 50, 10, 20, 40};
+  int  HoughLineParam[2]   = {25, 7};
   while ((opt = getopt(argc, argv, "vdhl:r:c:v:")) != -1) {
     switch (opt) {
       case 'd':
@@ -45,7 +47,7 @@ int main(int argc, char** argv)
         break;
 
       case 'l':
-        if((logf = fopen(optarg, "a")) != NULL ) {
+        if((logf = fopen(optarg, "a")) == NULL ) {
           fprintf(stderr,"Can't open logfile: %s\n", optarg);
           exit(EXIT_FAILURE);
         }
@@ -78,41 +80,66 @@ int main(int argc, char** argv)
   const char *tmpstr;
   config_init(&cfg);
   if(config_file[0] != '\0') {
-    if(config_read_file(&cfg, config_file)) {
-      fprintf(stderr, "%s:%d - %s\n", config_error_file(&cfg),
-              config_error_line(&cfg), config_error_text(&cfg));
+    if(debug) fprintf(stderr, "Using config file: %s\n", config_file);
+
+    if(!config_read_file(&cfg, config_file)) {
+      fprintf(stderr, "Config file error %s:%d - %s\n",
+          config_error_file(&cfg),
+          config_error_line(&cfg),
+          config_error_text(&cfg));
       config_destroy(&cfg);
       exit(EXIT_FAILURE);
-    } else { // Load settings from config file
-      if(!debug) config_lookup_int(&cfg, "debug", &debug);
+    }
 
-      if( (video_dev[0] == '\0') && 
-        config_lookup_string(&cfg, "video_device", &tmpstr)) {
-        useVideo = 1;
-        strncpy(video_dev, tmpstr, MAXLEN-1);
-        video_dev[MAXLEN-1]='\0';
-      }
+    if(!debug) config_lookup_int(&cfg, "debug", &debug);
 
-      if(config_lookup_string(&cfg, "logfile", &tmpstr)) {
-        if((logf = fopen(optarg, "a")) != NULL ) {
-          fprintf(stderr,"Can't open logfile: %s\n", tmpstr);
-          exit(EXIT_FAILURE);
-        }
-      }
+    if( (video_dev[0] == '\0') &&
+            config_lookup_string(&cfg, "video_device", &tmpstr)) {
+      useVideo = 1;
+      strncpy(video_dev, tmpstr, MAXLEN-1);
+      video_dev[MAXLEN-1]='\0';
+    }
 
-      if(setting = config_lookup(&cfg, "ROI")) {
-        int count = config_setting_length(setting);
-        int tmp[4];
-        if(count != 4) {
-          fprintf(stderr, "\tInvalid ROI specified in '%s'.\n", config_file);
-          exit(EXIT_FAILURE);
-        }
-        for(int i=0; i<count; i++)
-          tmp[i] = config_setting_get_int_elem(setting, i);
-        myROI = Rect(tmp[0], tmp[1], tmp[2], tmp[3]);
+    if(config_lookup_string(&cfg, "logfile", &tmpstr)) {
+      if((logf = fopen(tmpstr, "a")) == NULL ) {
+        fprintf(stderr,"Can't open logfile: %s\n", tmpstr);
+        exit(EXIT_FAILURE);
       }
     }
-  }
+
+    if(setting = config_lookup(&cfg, "ROI")) {
+      int count = config_setting_length(setting);
+      int tmp[4];
+      if(count != 4) {
+        fprintf(stderr, "\tInvalid ROI specified in '%s'.\n", config_file);
+        exit(EXIT_FAILURE);
+      }
+      for(int i=0; i<count; i++)
+        tmp[i] = config_setting_get_int_elem(setting, i);
+      myROI = Rect(tmp[0], tmp[1], tmp[2], tmp[3]);
+    }
+
+    if(setting = config_lookup(&cfg, "HoughCircleParam")) {
+      int count = config_setting_length(setting);
+      if(count != 5) {
+        fprintf(stderr, "\tInvalid HoughCircleParam specified in '%s'.", config_file);
+        exit(EXIT_FAILURE);
+      }
+      for(int i=0; i<count; i++)
+        HoughCircleParam[i] = config_setting_get_int_elem(setting, i);
+    }
+
+    if(setting = config_lookup(&cfg, "HoughLineParam")) {
+      int count = config_setting_length(setting);
+      if(count != 2) {
+        fprintf(stderr, "\tInvalid HoughLineParam specified in '%s'.", config_file);
+        exit(EXIT_FAILURE);
+      }
+      for(int i=0; i<count; i++)
+        HoughLineParam[i] = config_setting_get_int_elem(setting, i);
+    }
+
+  } // Does config file exist?
   if(logf == NULL) logf = stderr;
 
 
@@ -134,7 +161,7 @@ int main(int argc, char** argv)
   while(useVideo || (optind < argc)) {
 
     if(!useVideo) {
-      if(debug) fprintf(logf,"Opening file: '%s'\n", argv[optind]);
+      if(debug) fprintf(logf,"-----------------------\nOpening file: '%s'\n", argv[optind]);
       raw = imread( argv[optind], 1 );
       if( !raw.data ) {
         fprintf(stderr,"Can't open file: %s\n", argv[optind]);
@@ -174,8 +201,9 @@ int main(int argc, char** argv)
     //HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, src_gray.rows/8, 200, 100, 0, 0 );
     //HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, 30, 100, 50, 20, 100 );
 
-    HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, 30, 50, 10, 20, 40 );
-    if(debug) fprintf(logf,"Found %d circles.\n", circles.size());
+    HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, HoughCircleParam[0],
+        HoughCircleParam[1], HoughCircleParam[2], HoughCircleParam[3], HoughCircleParam[4]);
+    if(debug) fprintf(logf,"\nFound %d circles.\n", circles.size());
 
     /// Draw the circles detected
     double aveRadius=0;
@@ -239,7 +267,7 @@ int main(int argc, char** argv)
      *        same line.
      */
     HoughLinesP( dst, lines, 1, CV_PI/180, HoughLineParam[0], aveRadius, HoughLineParam[1]);
-    if(debug) fprintf(logf,"Found %d lines.\n", lines.size());
+    if(debug) fprintf(logf,"\nFound %d lines.\n", lines.size());
     for( size_t i = 0; i < lines.size(); i++ ) {
       int col = (int) 255./lines.size()*(i+1);
       if(debug) fprintf(logf,"\t %3d : %3d   %3d :  %3d   %3d", i,
