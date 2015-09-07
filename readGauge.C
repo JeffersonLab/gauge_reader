@@ -19,7 +19,7 @@ vector<double> ang2psi(vector<double> ang, double *params) {
   double conv    = params[3];
 
   vector<double> pressure;
-  for(int i=0; i<ang.size(); i++) {
+  for(unsigned int i=0; i<ang.size(); i++) {
     double psi=-1;
     if(ang[i] > minAng && ang[i] < maxAng) {
       psi = (angZero - ang[i])*conv;
@@ -74,7 +74,6 @@ int main(int argc, char** argv)
   int debug = 0;
   char config_file[MAXLEN]; config_file[0] = '\0';
   char video_dev[MAXLEN];   video_dev[0]  = '\0';
-  char ROI[MAXLEN];
   char opt;
   int  HoughCircleParam[5] = {30, 50, 10, 20, 40};
   int  HoughLineParam[2]   = {25, 7};
@@ -160,7 +159,7 @@ int main(int argc, char** argv)
       }
     }
 
-    if(setting = config_lookup(&cfg, "ROI")) {
+    if( (setting = config_lookup(&cfg, "ROI")) ) {
       int count = config_setting_length(setting);
       int tmp[4];
       if(count != 4) {
@@ -172,7 +171,7 @@ int main(int argc, char** argv)
       myROI = Rect(tmp[0], tmp[1], tmp[2], tmp[3]);
     }
 
-    if(setting = config_lookup(&cfg, "HoughCircleParam")) {
+    if( (setting = config_lookup(&cfg, "HoughCircleParam")) ) {
       int count = config_setting_length(setting);
       if(count != 5) {
         fprintf(stderr, "\tInvalid HoughCircleParam specified in '%s'.", config_file);
@@ -182,7 +181,7 @@ int main(int argc, char** argv)
         HoughCircleParam[i] = config_setting_get_int_elem(setting, i);
     }
 
-    if(setting = config_lookup(&cfg, "HoughLineParam")) {
+    if( (setting = config_lookup(&cfg, "HoughLineParam")) ) {
       int count = config_setting_length(setting);
       if(count != 2) {
         fprintf(stderr, "\tInvalid HoughLineParam specified in '%s'.", config_file);
@@ -192,14 +191,14 @@ int main(int argc, char** argv)
         HoughLineParam[i] = config_setting_get_int_elem(setting, i);
     }
 
-    if(setting = config_lookup(&cfg, "ang2psi_hi")) {
+    if( (setting = config_lookup(&cfg, "ang2psi_hi")) ) {
       config_lookup_float(&cfg, "ang2psi_hi.angMin",  par_ang2psi_hi+0 );
       config_lookup_float(&cfg, "ang2psi_hi.angMax",  par_ang2psi_hi+1 );
       config_lookup_float(&cfg, "ang2psi_hi.angZero", par_ang2psi_hi+2 );
       config_lookup_float(&cfg, "ang2psi_hi.conv",    par_ang2psi_hi+3 );
     }
 
-    if(setting = config_lookup(&cfg, "ang2psi_lo")) {
+    if( (setting = config_lookup(&cfg, "ang2psi_lo")) ) {
       config_lookup_float(&cfg, "ang2psi_lo.angMin",  par_ang2psi_lo+0 );
       config_lookup_float(&cfg, "ang2psi_lo.angMax",  par_ang2psi_lo+1 );
       config_lookup_float(&cfg, "ang2psi_lo.angZero", par_ang2psi_lo+2 );
@@ -270,11 +269,11 @@ int main(int argc, char** argv)
 
     HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, HoughCircleParam[0],
         HoughCircleParam[1], HoughCircleParam[2], HoughCircleParam[3], HoughCircleParam[4]);
-    if(debug) fprintf(logf,"\nFound %d circles.\n", circles.size());
+    if(debug) fprintf(logf,"\nFound %ld circles.\n", circles.size());
 
     /// Draw the circles detected
     double aveRadius=0;
-    for( size_t i = 0; i < circles.size(); i++ ) {
+    for( unsigned int i = 0; i < circles.size(); i++ ) {
       int radius = cvRound(circles[i][2]);
       Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 
@@ -334,8 +333,8 @@ int main(int argc, char** argv)
      *        same line.
      */
     HoughLinesP( dst, lines, 1, CV_PI/180, HoughLineParam[0], aveRadius, HoughLineParam[1]);
-    if(debug) fprintf(logf,"\nFound %d lines.\n", lines.size());
-    for( size_t i = 0; i < lines.size(); i++ ) {
+    if(debug) fprintf(logf,"\nFound %ld lines.\n", lines.size());
+    for( unsigned int i = 0; i < lines.size(); i++ ) {
       int col = (int) 255./lines.size()*(i+1);
       if(debug) fprintf(logf,"\t %3d : %3d   %3d :  %3d   %3d", i,
           cvRound(lines[i][0]), cvRound(lines[i][1]),
@@ -353,7 +352,7 @@ int main(int argc, char** argv)
 
       double len = sqrt(p1_x*p1_x + p1_y*p1_y);
 
-      for( size_t j = 0; j < goodCircles.size(); j++ ) {
+      for( unsigned int j = 0; j < goodCircles.size(); j++ ) {
         int c_x = cvRound(goodCircles[j][0]);
         int c_y = cvRound(goodCircles[j][1]);
         int c_r = cvRound(goodCircles[j][2]);
@@ -412,12 +411,12 @@ int main(int argc, char** argv)
 
     printf("Filename: %s\n", argv[optind]);
     printf("  Left_angle(s): ");
-    for(int i=0; i<angLeft.size(); i++) {
+    for(unsigned int i=0; i<angLeft.size(); i++) {
       printf("  %8.2f", angLeft[i]);
     }
     printf("\n");
     printf("  Right_angle(s):");
-    for(int i=0; i<angRight.size(); i++) {
+    for(unsigned int i=0; i<angRight.size(); i++) {
       printf("  %8.2f", angRight[i]);
     }
     printf("\n\n");
