@@ -1,0 +1,38 @@
+#!/usr/bin/perl -w
+
+use File::Copy;
+
+my $DIR="/home/coda/motion/gauge_extract";
+my $SRCFILES="video/last_*.jpg";
+
+my $GAUGE_EXE  = "./readGauge";
+my @GAUGE_OPTS = qw( -c readGauge.cfg );
+my $OUTFILE = "pressure.out";
+
+my $unlink=0;
+if($#ARGV > -1 && $ARGV[0] eq "--unlink") {
+  $unlink=1;
+}
+
+chdir $DIR or die "Can't chdir to '$DIR'...";
+
+my @image_list = glob($SRCFILES);
+exit(0) if( $#image_list < 0);
+
+my $CMD=join(" ",$GAUGE_EXE, @GAUGE_OPTS, "-f", $#image_list+1, @image_list);
+my $output=`$CMD`;
+
+if( -e $OUTFILE ) {
+  unlink("${OUTFILE}-old");
+  move($OUTFILE, "${OUTFILE}-old") or die("Can't move $OUTFILE -> ${OUTFILE}-old\n");
+}
+
+if( $output =~ /^\s*Pressure low \/ high:\s+([.\d]+)\s+([.\d]+)/m ) {
+  my $nfiles = $#image_list + 1;
+  my $OUTF;
+  open (OUTF, ">", ${OUTFILE}) or die "Can't open file '${OUTFILE}': $!\n";
+  print OUTF time . "  n_files:${nfiles}  $1  $2\n";
+  close OUTF;
+  unlink @image_list if($unlink);
+}
+

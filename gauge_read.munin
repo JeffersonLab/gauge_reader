@@ -1,0 +1,59 @@
+#!/bin/sh
+# -*- sh -*-
+
+GF="/home/coda/motion/gauge_extract/pressure.out"
+
+if [ "$1" = "autoconf" ]; then
+        echo yes
+        exit 0
+fi
+
+# If run with the "config"-parameter, give out information on how the
+# graphs should look.
+
+if [ "$1" = "config" ]; then
+
+        # The host name this plugin is for. (Can be overridden to have
+        # one machine answer for several)
+
+        # The title of the graph
+        echo 'graph_title Gauge Pressure'
+        # Arguments to "rrdtool graph". In this case, tell it that the
+        # lower limit of the graph is '0', and that 1k=1000 (not 1024)
+        echo 'graph_args --base 1000 -l 0'
+        # The Y-axis label
+        echo 'graph_vlabel Pressure (psi)'
+        #echo 'graph_scale no'
+        #echo 'graph_category system'
+        # The fields. "label" is used in the legend. "label" is the only
+        # required subfield.
+        echo 'gaugeHi.label High Pressure'
+        echo 'gaugeLo.label Low Pressure (x10)'
+
+        echo 'gaugeHi.warning  :30'
+        echo 'gaugeHi.critical :10'
+
+        echo 'gaugeLo.warning  :10'
+        echo 'gaugeLo.critical :5'
+        # This one is purely to add an explanation to the web page. The first
+        # one is for the graph itself, while the second one is for the field
+        # "load".
+        echo "graph_info This graphs the gauge pressure readback from $GF"
+        echo 'gaugeHi.info High pressure gauge reading (psi)'
+        echo 'gaugeLo.info Low pressure gauge reading (psi x10)'
+
+        # Last, if run with the "config"-parameter, quit here (don't
+        # display any data)
+        exit 0
+fi
+
+# If not run with any parameters at all (or only unknown ones), do the
+# real work - i.e. display the data. Almost always this will be
+# "value" subfield for every data field.
+
+if [ -r "$GF" ]; then
+  echo -n "gaugeHi.value "
+  cut -f7 -d' ' < "$GF"
+  echo -n "gaugeLo.value "
+  cut -f5 -d' ' < "$GF"
+fi
