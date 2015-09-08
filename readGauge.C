@@ -84,7 +84,7 @@ int main(int argc, char** argv)
   char opt;
   int  HoughCircleParam[5] = {30, 50, 10, 20, 40};
   int  HoughLineParam[2]   = {25, 7};
-  while ((opt = getopt(argc, argv, "vdhl:r:c:v:f:")) != -1) {
+  while ((opt = getopt(argc, argv, "dhl:r:c:v:f:")) != -1) {
     switch (opt) {
       case 'd':
         debug++;
