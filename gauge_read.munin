@@ -30,17 +30,21 @@ if [ "$1" = "config" ]; then
         echo 'gaugeHi.label High Pressure'
         echo 'gaugeLo.label Low Pressure (x10)'
 
-        echo 'gaugeHi.warning  :30'
-        echo 'gaugeHi.critical :10'
+        echo 'gaugeHi.warning  500:'
+        echo 'gaugeHi.critical 200:'
 
-        echo 'gaugeLo.warning  :10'
-        echo 'gaugeLo.critical :5'
+        echo 'gaugeLo.warning  100:'
+        echo 'gaugeLo.critical 50:'
         # This one is purely to add an explanation to the web page. The first
         # one is for the graph itself, while the second one is for the field
         # "load".
         echo "graph_info This graphs the gauge pressure readback from $GF"
         echo 'gaugeHi.info High pressure gauge reading (psi)'
         echo 'gaugeLo.info Low pressure gauge reading (psi x10)'
+
+        # Scale the low pressure reading up by factor of 10 to get it on
+        # similar scale
+        echo "gaugeLo.cdef gaugeLo,10,*"
 
         # Last, if run with the "config"-parameter, quit here (don't
         # display any data)
