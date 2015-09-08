@@ -69,10 +69,16 @@ int main(int argc, char** argv)
   double par_ang2psi_hi[4] = {-999, 999, 0., -1.}; // conv function will return angle back
 
   /* Handle commandline options */
-  long int maxFrames  = -1;
+  /* libconfig < 1.4 has no macros and requires different int types */
+#ifndef LIBCONFIG_VER_MAJOR
+  long int maxFrames, debug;
+#else
+  int debug, maxFrames;
+#endif
+  maxFrames  = -1;
+  debug = 0;
   int frameCount = 0;
   int useVideo = 0;
-  long int debug = 0;
   char config_file[MAXLEN]; config_file[0] = '\0';
   char video_dev[MAXLEN];   video_dev[0]  = '\0';
   char opt;
