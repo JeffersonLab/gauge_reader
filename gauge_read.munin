@@ -2,6 +2,7 @@
 # -*- sh -*-
 
 GF="/home/coda/motion/gauge_extract/pressure.out"
+SCALE_LO=10;
 
 if [ "$1" = "autoconf" ]; then
         echo yes
@@ -12,39 +13,43 @@ fi
 # graphs should look.
 
 if [ "$1" = "config" ]; then
-
-        # The host name this plugin is for. (Can be overridden to have
-        # one machine answer for several)
-
         # The title of the graph
-        echo 'graph_title Gauge Pressure'
+        echo "graph_title Gauge Pressure"
+
         # Arguments to "rrdtool graph". In this case, tell it that the
         # lower limit of the graph is '0', and that 1k=1000 (not 1024)
-        echo 'graph_args --base 1000 -l 0'
+        echo "graph_args --base 1000 -l 0"
+
         # The Y-axis label
-        echo 'graph_vlabel Pressure (psi)'
+        echo "graph_vlabel Pressure (psi)"
         #echo 'graph_scale no'
         #echo 'graph_category system'
+
         # The fields. "label" is used in the legend. "label" is the only
         # required subfield.
-        echo 'gaugeHi.label High Pressure'
-        echo 'gaugeLo.label Low Pressure (x10)'
+        echo "gaugeHi.label High Pressure"
+        echo "gaugeLo.label Low Pressure (x${SCALE_LO})"
 
-        echo 'gaugeHi.warning  500:'
-        echo 'gaugeHi.critical 200:'
 
-        echo 'gaugeLo.warning  100:'
-        echo 'gaugeLo.critical 50:'
+        # Default warn/crit thresholds.
+        # Note: These limits apply to the raw vales (not the 'cdef' scaled
+        #       values) that are plotted.
+        echo "gaugeHi.warning  500:"
+        echo "gaugeHi.critical 200:"
+
+        echo "gaugeLo.warning  10:"
+        echo "gaugeLo.critical 5:"
+
         # This one is purely to add an explanation to the web page. The first
         # one is for the graph itself, while the second one is for the field
         # "load".
-        echo "graph_info This graphs the gauge pressure readback from $GF"
-        echo 'gaugeHi.info High pressure gauge reading (psi)'
-        echo 'gaugeLo.info Low pressure gauge reading (psi x10)'
+        echo "graph_info This graphs the gauge pressure readbacks from '$GF'."
+        echo "gaugeHi.info High pressure gauge (psi)"
+        echo "gaugeLo.info Low pressure gauge (psi)"
 
-        # Scale the low pressure reading up by factor of 10 to get it on
-        # similar scale
-        echo "gaugeLo.cdef gaugeLo,10,*"
+        # Scale the low pressure reading up by factor of ${SCALE_LO} to get
+        # it plotted on a similar scale.  NOTE: this only affects display.
+        echo "gaugeLo.cdef gaugeLo,${SCALE_LO},*"
 
         # Last, if run with the "config"-parameter, quit here (don't
         # display any data)
