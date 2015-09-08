@@ -8,7 +8,7 @@ CC = g++
 
 
 $(PROJ) : $(PROJ).C
-	$(CC) -o $@ $(CFLAGS) $(LIBS) $<
+	$(CC) $(CFLAGS) $(LIBS) $< -o $@
 
 clean :
 	-rm -f $(PROJ)
