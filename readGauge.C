@@ -24,7 +24,8 @@ vector<double> ang2psi(vector<double> ang, double *params) {
     if(ang[i] > minAng && ang[i] < maxAng) {
       psi = (angZero - ang[i])*conv;
       psi = psi <  0 ? 0 : psi;
-      pressure.push_back(psi);
+      if(psi > 0)
+        pressure.push_back(psi);
     }
   }
   return(pressure);
