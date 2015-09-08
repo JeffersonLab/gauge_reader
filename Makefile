@@ -1,5 +1,7 @@
 PROJ = readGauge
 
+export PKG_CONFIG_PATH = /usr/local/lib/pkgconfig
+
 LIBS += $(shell pkg-config opencv libconfig --libs) -lm
 CFLAGS += -Wall
 CFLAGS += -O2
