@@ -24,7 +24,8 @@ vector<double> ang2psi(vector<double> ang, double *params) {
     if(ang[i] > minAng && ang[i] < maxAng) {
       psi = (angZero - ang[i])*conv;
       psi = psi <  0 ? 0 : psi;
-      pressure.push_back(psi);
+      if(psi > 0)
+        pressure.push_back(psi);
     }
   }
   return(pressure);
@@ -68,10 +69,10 @@ int main(int argc, char** argv)
   double par_ang2psi_hi[4] = {-999, 999, 0., -1.}; // conv function will return angle back
 
   /* Handle commandline options */
-  int maxFrames  = -1;
+  long int maxFrames  = -1;
   int frameCount = 0;
   int useVideo = 0;
-  int debug = 0;
+  long int debug = 0;
   char config_file[MAXLEN]; config_file[0] = '\0';
   char video_dev[MAXLEN];   video_dev[0]  = '\0';
   char opt;
@@ -133,8 +134,7 @@ int main(int argc, char** argv)
     if(debug) fprintf(stderr, "Using config file: %s\n", config_file);
 
     if(!config_read_file(&cfg, config_file)) {
-      fprintf(stderr, "Config file error %s:%d - %s\n",
-          config_error_file(&cfg),
+      fprintf(stderr, "Config file error %d - %s\n",
           config_error_line(&cfg),
           config_error_text(&cfg));
       config_destroy(&cfg);
@@ -269,7 +269,7 @@ int main(int argc, char** argv)
 
     HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, HoughCircleParam[0],
         HoughCircleParam[1], HoughCircleParam[2], HoughCircleParam[3], HoughCircleParam[4]);
-    if(debug) fprintf(logf,"\nFound %ld circles.\n", circles.size());
+    if(debug) fprintf(logf,"\nFound %ld circles.\n", (unsigned long int)circles.size());
 
     /// Draw the circles detected
     double aveRadius=0;
@@ -333,7 +333,7 @@ int main(int argc, char** argv)
      *        same line.
      */
     HoughLinesP( dst, lines, 1, CV_PI/180, HoughLineParam[0], aveRadius, HoughLineParam[1]);
-    if(debug) fprintf(logf,"\nFound %ld lines.\n", lines.size());
+    if(debug) fprintf(logf,"\nFound %ld lines.\n", (unsigned long int)lines.size());
     for( unsigned int i = 0; i < lines.size(); i++ ) {
       int col = (int) 255./lines.size()*(i+1);
       if(debug) fprintf(logf,"\t %3d : %3d   %3d :  %3d   %3d", i,
