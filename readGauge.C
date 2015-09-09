@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <libconfig.h>
+#include <sys/stat.h>
 
 #define MAXLEN 255
 #define RADDEG 180./CV_PI
@@ -136,6 +137,13 @@ int main(int argc, char** argv)
   config_setting_t *setting;
   const char *tmpstr;
   config_init(&cfg);
+  struct stat buffer;
+  char tmpfn[MAXLEN];
+  strncpy(tmpfn,argv[0],MAXLEN-1);
+  if( (config_file[0] == '\0') &&
+      (stat( strncat(tmpfn, ".cfg", MAXLEN-5), &buffer ) == 0 ) ) {
+    strncpy(config_file, tmpfn, MAXLEN-1);
+  }
   if(config_file[0] != '\0') {
     if(debug) fprintf(stderr, "Using config file: %s\n", config_file);
 
