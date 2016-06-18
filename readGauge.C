@@ -53,6 +53,7 @@ void usage(char *argv0) {
   fprintf(stderr, "\t-d               Enable debug output (repeat for increased verbosity)\n");
   fprintf(stderr, "\t-l logfile       Send debug data to file\n");
   fprintf(stderr, "\t-r x:y:w:h       Set ROI in image\n");
+  fprintf(stderr, "\t-s delta         Scan ROI in 3x3 grid with this delta (int)\n");
   fprintf(stderr, "\t-v /dev/videoX   Read from v4l video device\n");
   fprintf(stderr, "\t-f N             Output psi values averaged over N frames/image_files\n");
   fprintf(stderr, "\t-c config_file   Use configuration file\n");
@@ -72,11 +73,12 @@ int main(int argc, char** argv)
   /* Handle commandline options */
   /* libconfig < 1.4 has no macros and requires different int types */
 #ifndef LIBCONFIG_VER_MAJOR
-  long int maxFrames, debug;
+  long int maxFrames, debug, scanDelta;
 #else
-  int debug, maxFrames;
+  int debug, maxFrames, scanDelta;
 #endif
   maxFrames  = -1;
+  scanDelta  = -1;
   debug = 0;
   int frameCount = 0;
   int useVideo = 0;
@@ -85,7 +87,7 @@ int main(int argc, char** argv)
   char opt;
   int  HoughCircleParam[5] = {30, 50, 10, 20, 40};
   int  HoughLineParam[2]   = {25, 7};
-  while ((opt = getopt(argc, argv, "dhl:r:c:v:f:")) != -1) {
+  while ((opt = getopt(argc, argv, "dhl:s:r:c:v:f:")) != -1) {
     switch (opt) {
       case 'd':
         debug++;
@@ -95,6 +97,10 @@ int main(int argc, char** argv)
         useVideo = 1;
         strncpy(video_dev, optarg, MAXLEN-1);
         video_dev[MAXLEN-1]='\0';
+        break;
+
+      case 's':
+        scanDelta=atoi(optarg);
         break;
 
       case 'f':
@@ -158,6 +164,8 @@ int main(int argc, char** argv)
     if(!debug) config_lookup_int(&cfg, "debug", &debug);
 
     if(maxFrames<0) config_lookup_int(&cfg, "max_frames", &maxFrames);
+
+    if(scanDelta<0) config_lookup_int(&cfg, "ScanDelta", &scanDelta);
 
     if( (video_dev[0] == '\0') &&
             config_lookup_string(&cfg, "video_device", &tmpstr)) {
@@ -256,184 +264,198 @@ int main(int argc, char** argv)
       }
     }
 
-    orig = raw(myROI);
-    orig.copyTo(src);
-    /// Convert it to gray
-    cvtColor( src, src_gray, CV_BGR2GRAY );
+    int dx, dy;
+    Rect origROI = myROI;
+    if(scanDelta<=0) scanDelta = 1;  // FIXME really just want a single iteration for scanDelta==0
+    for(dx=-scanDelta; dx<=scanDelta; dx+=scanDelta) {
+      for(dy=-scanDelta; dy<=scanDelta; dy+=scanDelta) {
+        myROI = origROI;
+        myROI.x += dx;
+        myROI.y += dy;
 
-    /// Reduce the noise so we avoid false circle detection
-    GaussianBlur( src_gray, src_gray, Size(9, 9), 2, 2 );
+        orig = raw(myROI);
+        orig.copyTo(src);
+        /// Convert it to gray
+        cvtColor( src, src_gray, CV_BGR2GRAY );
 
-    vector<Vec3f> circles;
-    vector<Vec3f> goodCircles;
+        /// Reduce the noise so we avoid false circle detection
+        GaussianBlur( src_gray, src_gray, Size(9, 9), 2, 2 );
 
-    /// Apply the Hough Transform to find the circles
-    //void cv::HoughCircles   (   InputArray    image,
-    //  OutputArray   circles,
-    //  int   method,
-    //  double    dp,
-    //  double    minDist,
-    //  double    param1 = 100,
-    //  double    param2 = 100,
-    //  int   minRadius = 0,
-    //  int   maxRadius = 0 
-    //);
-    //HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, src_gray.rows/8, 200, 100, 0, 0 );
-    //HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, 30, 100, 50, 20, 100 );
+        vector<Vec3f> circles;
+        vector<Vec3f> goodCircles;
 
-    HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, HoughCircleParam[0],
-        HoughCircleParam[1], HoughCircleParam[2], HoughCircleParam[3], HoughCircleParam[4]);
-    if(debug) fprintf(logf,"\nFound %ld circles.\n", (unsigned long int)circles.size());
+        /// Apply the Hough Transform to find the circles
+        //void cv::HoughCircles   (   InputArray    image,
+        //  OutputArray   circles,
+        //  int   method,
+        //  double    dp,
+        //  double    minDist,
+        //  double    param1 = 100,
+        //  double    param2 = 100,
+        //  int   minRadius = 0,
+        //  int   maxRadius = 0 
+        //);
+        //HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, src_gray.rows/8, 200, 100, 0, 0 );
+        //HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, 30, 100, 50, 20, 100 );
 
-    /// Draw the circles detected
-    double aveRadius=0;
-    for( unsigned int i = 0; i < circles.size(); i++ ) {
-      int radius = cvRound(circles[i][2]);
-      Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+        HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, HoughCircleParam[0],
+            HoughCircleParam[1], HoughCircleParam[2], HoughCircleParam[3], HoughCircleParam[4]);
+        if(debug) fprintf(logf,"\nFound %ld circles.\n", (unsigned long int)circles.size());
 
-      if(debug) fprintf(logf,"\t %3d : %3d   %3d : %3d", i, 
-          cvRound(circles[i][0]), cvRound(circles[i][1]), radius);
+        /// Draw the circles detected
+        double aveRadius=0;
+        for( unsigned int i = 0; i < circles.size(); i++ ) {
+          int radius = cvRound(circles[i][2]);
+          Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 
-      int col = (int) 255./circles.size()*(i+1);
-      if(
-          (abs(circles[i][1] - 0.5*myROI.height) < myROI.height/5)// should be on H. mid-line
-       && (abs(circles[i][0] - 0.5*myROI.width)  > myROI.width/7) // reject near image center
-       ) {
-        if(debug) fprintf(logf," : good");
-        goodCircles.push_back( circles[i] );
-        aveRadius+=radius;
-        circle( src, center, 3, Scalar(0,col,0), -1, 8, 0 );      // circle center
-        circle( src, center, radius, Scalar(0,col,0), 3, 8, 0 );  // circle outline
-      } else {
-        circle( src, center, 3, Scalar(0,0,col), -1, 8, 0 );      // circle center
-        circle( src, center, radius, Scalar(0,0,col), 3, 8, 0 );  // circle outline
-      }
-      if(debug) fprintf(logf,"\n");
-    }
-    if(goodCircles.size() > 0) {
-      aveRadius /= goodCircles.size();
-      aveRadius *= 0.7;
-    } else {
-      aveRadius = 25.;
-    }
+          if(debug) fprintf(logf,"\t %3d : %3d   %3d : %3d", i, 
+              cvRound(circles[i][0]), cvRound(circles[i][1]), radius);
 
-    if(debug) fprintf(logf,"Max line length (from aveRadius*0.7):  %g\n", aveRadius);
-
-    /// Show your results
-    if(debug) {
-      namedWindow( "Hough Circle Transform Demo", CV_WINDOW_AUTOSIZE );
-      imshow( "Hough Circle Transform Demo", src );
-    }
-
-    Mat dst, color_dst;
-    orig.copyTo(src);
-    Canny( src, dst, 50, 200, 3 );
-    cvtColor( dst, color_dst, COLOR_GRAY2BGR );
-    vector<Vec4i> lines;
-
-
-    /* HoughLinesP(dst, lines, 1, CV_PI/180, 50, 50, 10 );
-     *  dst: Output of the edge detector. It should be a grayscale image
-     *        (although in fact it is a binary one)
-     *  lines: A vector that will store the parameters (x_{start}, y_{start},
-     *        x_{end}, y_{end}) of the detected lines
-     *  rho : The resolution of the parameter r in pixels. We use 1 pixel.
-     *  theta: The resolution of the parameter \theta in radians. We use 1
-     *        degree (CV_PI/180)
-     *  threshold: The minimum number of intersections to "detect" a line
-     *  minLinLength: The minimum number of points that can form a line. Lines
-     *        with less than this number of points are disregarded.
-     *  maxLineGap: The maximum gap between two points to be considered in the
-     *        same line.
-     */
-    HoughLinesP( dst, lines, 1, CV_PI/180, HoughLineParam[0], aveRadius, HoughLineParam[1]);
-    if(debug) fprintf(logf,"\nFound %ld lines.\n", (unsigned long int)lines.size());
-    for( unsigned int i = 0; i < lines.size(); i++ ) {
-      int col = (int) 255./lines.size()*(i+1);
-      if(debug) fprintf(logf,"\t %3d : %3d   %3d :  %3d   %3d", i,
-          cvRound(lines[i][0]), cvRound(lines[i][1]),
-          cvRound(lines[i][2]), cvRound(lines[i][3])
-          );
-      if(debug > 1) {
-        line( color_dst, Point(lines[i][0], lines[i][1]),
-          Point(lines[i][2], lines[i][3]), Scalar(0,0,col), 3, 8 );
-      }
-
-      int p1_x = (lines[i][0]);
-      int p1_y = (lines[i][1]);
-      int p2_x = (lines[i][2]);
-      int p2_y = (lines[i][3]);
-
-      double len = sqrt(p1_x*p1_x + p1_y*p1_y);
-
-      for( unsigned int j = 0; j < goodCircles.size(); j++ ) {
-        int c_x = cvRound(goodCircles[j][0]);
-        int c_y = cvRound(goodCircles[j][1]);
-        int c_r = cvRound(goodCircles[j][2]);
-
-        /* look for lines roughly inside the circles */
-        double scale_radius = 1.3;
-        double p1_d = sqrt( pow(p1_x - c_x,2) + pow(p1_y - c_y,2) ) - scale_radius*c_r;
-        double p2_d = sqrt( pow(p2_x - c_x,2) + pow(p2_y - c_y,2) ) - scale_radius*c_r;
-        double d = abs((p2_x-p1_x)*(p1_y-c_y) - (p1_x-c_x)*(p2_y-p1_y))/
-          sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
-        if( (p1_d < 0) && (p2_d < 0) ) {
-            if(debug) fprintf(logf," :  len %6.2f  :  c %d : d %6.3f", len, j, d);
-
-          /* good line(s) should be close to the circle center */
-          double d = abs((p2_x-p1_x)*(p1_y-c_y) - (p1_x-c_x)*(p2_y-p1_y))/
-            sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
-          if(d < 0.2*c_r) {
-            line( color_dst, Point(lines[i][0], lines[i][1]),
-              Point(lines[i][2], lines[i][3]), Scalar(0,col,0), 2, 4 );
-
-            double p3_x, p3_y;
-            /* select line end-point closest to circumference */
-            if(abs(p1_d) < abs(p2_d)) {
-              p3_x = p1_x;    p3_y = p1_y;
-            } else {
-              p3_x = p2_x;    p3_y = p2_y;
-            }
-            circle( color_dst, Point(p3_x, p3_y), 3, Scalar(col,0,0), -1, 8, 0 );
-            p3_x -= c_x;
-            p3_y -= c_y;
-
-            double ang=-9999;
-
-            ang = RADDEG*atan2(-p3_y, p3_x);
-            if(ang < 0) ang+=360;
-
-            if(c_x < 0.5*myROI.width) {
-              angLeft.push_back(ang);
-            } else {
-              angRight.push_back(ang);
-            }
-
-            if(debug) fprintf(logf," : a %g deg",ang);
+          int col = (int) 255./circles.size()*(i+1);
+          if(
+              (abs(circles[i][1] - 0.5*myROI.height) < myROI.height/5)// should be on H. mid-line
+           && (abs(circles[i][0] - 0.5*myROI.width)  > myROI.width/7) // reject near image center
+           ) {
+            if(debug) fprintf(logf," : good");
+            goodCircles.push_back( circles[i] );
+            aveRadius+=radius;
+            circle( src, center, 3, Scalar(0,col,0), -1, 8, 0 );      // circle center
+            circle( src, center, radius, Scalar(0,col,0), 3, 8, 0 );  // circle outline
+          } else {
+            circle( src, center, 3, Scalar(0,0,col), -1, 8, 0 );      // circle center
+            circle( src, center, radius, Scalar(0,0,col), 3, 8, 0 );  // circle outline
           }
+          if(debug) fprintf(logf,"\n");
         }
+        if(goodCircles.size() > 0) {
+          aveRadius /= goodCircles.size();
+          aveRadius *= 0.7;
+        } else {
+          aveRadius = 25.;
+        }
+
+        if(debug) fprintf(logf,"Max line length (from aveRadius*0.7):  %g\n", aveRadius);
+
+        /// Show your results
+        if(debug) {
+          namedWindow( "Hough Circle Transform Demo", CV_WINDOW_AUTOSIZE );
+          imshow( "Hough Circle Transform Demo", src );
+        }
+
+        Mat dst, color_dst;
+        orig.copyTo(src);
+        Canny( src, dst, 50, 200, 3 );
+        cvtColor( dst, color_dst, COLOR_GRAY2BGR );
+        vector<Vec4i> lines;
+
+
+        /* HoughLinesP(dst, lines, 1, CV_PI/180, 50, 50, 10 );
+         *  dst: Output of the edge detector. It should be a grayscale image
+         *        (although in fact it is a binary one)
+         *  lines: A vector that will store the parameters (x_{start}, y_{start},
+         *        x_{end}, y_{end}) of the detected lines
+         *  rho : The resolution of the parameter r in pixels. We use 1 pixel.
+         *  theta: The resolution of the parameter \theta in radians. We use 1
+         *        degree (CV_PI/180)
+         *  threshold: The minimum number of intersections to "detect" a line
+         *  minLinLength: The minimum number of points that can form a line. Lines
+         *        with less than this number of points are disregarded.
+         *  maxLineGap: The maximum gap between two points to be considered in the
+         *        same line.
+         */
+        HoughLinesP( dst, lines, 1, CV_PI/180, HoughLineParam[0], aveRadius, HoughLineParam[1]);
+        if(debug) fprintf(logf,"\nFound %ld lines.\n", (unsigned long int)lines.size());
+        for( unsigned int i = 0; i < lines.size(); i++ ) {
+          int col = (int) 255./lines.size()*(i+1);
+          if(debug) fprintf(logf,"\t %3d : %3d   %3d :  %3d   %3d", i,
+              cvRound(lines[i][0]), cvRound(lines[i][1]),
+              cvRound(lines[i][2]), cvRound(lines[i][3])
+              );
+          if(debug > 1) {
+            line( color_dst, Point(lines[i][0], lines[i][1]),
+              Point(lines[i][2], lines[i][3]), Scalar(0,0,col), 3, 8 );
+          }
+
+          int p1_x = (lines[i][0]);
+          int p1_y = (lines[i][1]);
+          int p2_x = (lines[i][2]);
+          int p2_y = (lines[i][3]);
+
+          double len = sqrt(p1_x*p1_x + p1_y*p1_y);
+
+          for( unsigned int j = 0; j < goodCircles.size(); j++ ) {
+            int c_x = cvRound(goodCircles[j][0]);
+            int c_y = cvRound(goodCircles[j][1]);
+            int c_r = cvRound(goodCircles[j][2]);
+
+            /* look for lines roughly inside the circles */
+            double scale_radius = 1.3;
+            double p1_d = sqrt( pow(p1_x - c_x,2) + pow(p1_y - c_y,2) ) - scale_radius*c_r;
+            double p2_d = sqrt( pow(p2_x - c_x,2) + pow(p2_y - c_y,2) ) - scale_radius*c_r;
+            double d = abs((p2_x-p1_x)*(p1_y-c_y) - (p1_x-c_x)*(p2_y-p1_y))/
+              sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+            if( (p1_d < 0) && (p2_d < 0) ) {
+                if(debug) fprintf(logf," :  len %6.2f  :  c %d : d %6.3f", len, j, d);
+
+              /* good line(s) should be close to the circle center */
+              double d = abs((p2_x-p1_x)*(p1_y-c_y) - (p1_x-c_x)*(p2_y-p1_y))/
+                sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+              if(d < 0.2*c_r) {
+                line( color_dst, Point(lines[i][0], lines[i][1]),
+                  Point(lines[i][2], lines[i][3]), Scalar(0,col,0), 2, 4 );
+
+                double p3_x, p3_y;
+                /* select line end-point closest to circumference */
+                if(abs(p1_d) < abs(p2_d)) {
+                  p3_x = p1_x;    p3_y = p1_y;
+                } else {
+                  p3_x = p2_x;    p3_y = p2_y;
+                }
+                circle( color_dst, Point(p3_x, p3_y), 3, Scalar(col,0,0), -1, 8, 0 );
+                p3_x -= c_x;
+                p3_y -= c_y;
+
+                double ang=-9999;
+
+                ang = RADDEG*atan2(-p3_y, p3_x);
+                if(ang < 0) ang+=360;
+
+                if(c_x < 0.5*myROI.width) {
+                  angLeft.push_back(ang);
+                } else {
+                  angRight.push_back(ang);
+                }
+
+                if(debug) fprintf(logf," : a %g deg",ang);
+              }
+            }
+          }
+          if(debug) fprintf(logf,"\n");
+        }
+
+        if(debug) {
+          fprintf(logf,"\n");
+          imshow( "Edges", dst );
+          namedWindow( "Detected Lines", CV_WINDOW_AUTOSIZE );
+          imshow( "Detected Lines", color_dst );
+          fprintf(logf,"ROI Coordinates:  x = %d, y=%d, scanDelta=%d\n", 
+              myROI.x, myROI.y, (int)scanDelta);
+        }
+
+        printf("Filename: %s\n", argv[optind]);
+        printf("  Left_angle(s): ");
+        for(unsigned int i=0; i<angLeft.size(); i++) {
+          printf("  %8.2f", angLeft[i]);
+        }
+        printf("\n");
+        printf("  Right_angle(s):");
+        for(unsigned int i=0; i<angRight.size(); i++) {
+          printf("  %8.2f", angRight[i]);
+        }
+        printf("\n\n");
+
       }
-      if(debug) fprintf(logf,"\n");
     }
-
-    if(debug) {
-      fprintf(logf,"\n");
-      imshow( "Edges", dst );
-      namedWindow( "Detected Lines", CV_WINDOW_AUTOSIZE );
-      imshow( "Detected Lines", color_dst );
-    }
-
-    printf("Filename: %s\n", argv[optind]);
-    printf("  Left_angle(s): ");
-    for(unsigned int i=0; i<angLeft.size(); i++) {
-      printf("  %8.2f", angLeft[i]);
-    }
-    printf("\n");
-    printf("  Right_angle(s):");
-    for(unsigned int i=0; i<angRight.size(); i++) {
-      printf("  %8.2f", angRight[i]);
-    }
-    printf("\n\n");
 
     /* Average results over maxFrames */
     if(maxFrames > 0) {
