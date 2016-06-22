@@ -452,8 +452,11 @@ int main(int argc, char** argv)
         for(unsigned int i=0; i<angRight.size(); i++) {
           printf("  %8.2f", angRight[i]);
         }
-        printf("\n\n");
+        printf("\n");
 
+        printf("dx: %-2d, dy: %-2d    [hit key for next image]\n", dx, dy);
+        waitKey(0);
+        printf("\n");
       }
     }
 
