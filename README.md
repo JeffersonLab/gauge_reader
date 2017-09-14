@@ -1,44 +1,43 @@
-#########################################################################
-FIXME
-#########################################################################
-- this code is an ugly mish-mash of C and C++ styles -- sorry...
-- direct reading from video device is not tested/working
-  - seems to be a bug in the current RHEL6 kernel (2.6.32-279.22.1.el6)
-    that is interfering with this...  Allegedly CentOS kernel > 2.6.32-504
-    has it fixed...
+A hack to extract a gauge reading using image recognition
+=======
 
-#########################################################################
+FIXME
+=======
+- This code is an ugly mish-mash of C and C++ styles -- sorry...
+- Direct reading from video device is not tested/working
+  - seems to be a bug in the current RHEL6 kernel (2.6.32-279.22.1.el6) that is interfering with this...  Allegedly CentOS kernel > 2.6.32-504 has it fixed...
+
 FOR USE WITH MUNIN
-#########################################################################
+======
 NOTE:  Since direct reads from the video device don't work, the scripts below
    assume 'motion' is taking snapshots once every 20 seconds.  This leaves 15
    images that get averaged over a 5 minute period.
 
-- 'run_gauge_extract' will run over image files at a given path
-   and extract a median psi reading on both gauges
+- 'run_gauge_extract' will run over image files at a given path and extract a median psi reading on both gauges
    - NOTE:  If '--unlink' is passed, then the image files are deleted.
 
 - 'run_gauge_extract' runs in the crontab:
+  ```
   ## Intended for use with munin which runs at 5 minute intervals.  We
   ## want to extract gauge information and have the file ready for the
   ## next munin run so we will run at :04, :09... to leave time for th
   ## extraction routine to complete.
-  0-59/5 * * * * sleep 4m;
-  /home/coda/motion/gauge_extract/run_gauge_extract --unlink
+  0-59/5 * * * * sleep 4m; /home/coda/motion/gauge_extract/run_gauge_extract --unlink
+  ```
 
 - 'gauge_read.munin' gets a symlink in /etc/munin/plugins
   - NOTE: Edit the filename from which extracts data
     GF="/home/coda/motion/gauge_extract/pressure.out"
 
 
-#########################################################################
 INSTALLATION
-#########################################################################
-## Requires libconfig-devel
+============
+- Requires libconfig-devel
+- Requires opencv 2.4.x
 
-## Requires opencv 2.4.x
-From https://gist.github.com/mitmul/9253702
+- From https://gist.github.com/mitmul/9253702
 
+```
 yum --enablerepo=epel --enablerepo=rpmforge install  libv4l-devel \
   v4l-utils-devel-tools libv4l gcc g++ gtk+-devel gtk+extra-devel \
   libjpeg-devel libtiff-devel jasper-devel libpng-devel zlib-devel \
@@ -94,3 +93,4 @@ cmake  \
 
 make -j4
 sudo make install
+```
