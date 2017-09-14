@@ -34,9 +34,9 @@ INSTALLATION
 -----
 - Requires libconfig-devel
 - Requires opencv 2.4.x
+  - http://opencv.org/
 
-- From https://gist.github.com/mitmul/9253702
-
+- Installation under CentOS 6.2 based on https://gist.github.com/mitmul/9253702
 ```
 yum --enablerepo=epel --enablerepo=rpmforge install  libv4l-devel \
   v4l-utils-devel-tools libv4l gcc g++ gtk+-devel gtk+extra-devel \
