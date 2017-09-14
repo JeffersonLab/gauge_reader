@@ -2,13 +2,13 @@ A hack to extract a gauge reading using image recognition
 =======
 
 FIXME
-=======
+-----
 - This code is an ugly mish-mash of C and C++ styles -- sorry...
 - Direct reading from video device is not tested/working
   - seems to be a bug in the current RHEL6 kernel (2.6.32-279.22.1.el6) that is interfering with this...  Allegedly CentOS kernel > 2.6.32-504 has it fixed...
 
 FOR USE WITH MUNIN
-======
+-----
 NOTE:  Since direct reads from the video device don't work, the scripts below
    assume 'motion' is taking snapshots once every 20 seconds.  This leaves 15
    images that get averaged over a 5 minute period.
@@ -31,7 +31,7 @@ NOTE:  Since direct reads from the video device don't work, the scripts below
 
 
 INSTALLATION
-============
+-----
 - Requires libconfig-devel
 - Requires opencv 2.4.x
 
